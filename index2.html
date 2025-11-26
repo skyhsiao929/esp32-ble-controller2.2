@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>超音波治療控制</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            /* 防止 iOS 上的橡皮筋滾動效果 */
+            overscroll-behavior-y: none;
+        }
+        /* 自定義漸層背景 */
+        .app-background {
+            background: linear-gradient(180deg, #A8DBEE 0%, #4DB5BE 100%);
+            min-height: 100vh;
+        }
+        /* 玻璃擬態卡片 */
+        .glass-card {
+            background-color: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+        }
+        /* 隱藏滾動條但保持功能 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="app-background text-slate-800">
+
+    <!-- App 容器 -->
+    <div id="app" class="max-w-md mx-auto h-screen flex flex-col overflow-hidden relative">
+        
+        <!-- ==================== 主控制畫面 (Control Screen) ==================== -->
+        <div id="controlScreen" class="flex-1 flex flex-col h-full overflow-y-auto no-scrollbar p-5 pb-24 space-y-4">
+            
+            <!-- 狀態列卡片 -->
+            <div class="glass-card rounded-3xl overflow-hidden mt-8">
+                <div class="flex justify-between items-center p-4 border-b border-cyan-100 bg-white/90">
+                    <div class="flex items-center gap-2">
+                        <i id="connIcon" data-lucide="circle-off" class="w-4 h-4 text-red-500"></i>
+                        <span id="connText" class="text-sm font-semibold text-slate-600">設備未連線</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div id="batteryGroup" class="hidden flex items-center gap-1">
+                            <i data-lucide="battery-charging" class="w-4 h-4 text-slate-600"></i>
+                            <span id="batteryText" class="text-sm font-semibold text-slate-600">--%</span>
+                        </div>
+                        <span class="text-sm font-semibold text-slate-600">模式: Recovery</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 患者資訊區塊 -->
+            <div class="glass-card rounded-3xl p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-bold text-slate-900">患者資訊</h2>
+                    <button onclick="navigateTo('profile')" id="editProfileBtn" class="p-2 rounded-full hover:bg-slate-100 transition">
+                        <i data-lucide="pencil" class="w-4 h-4 text-slate-800"></i>
+                    </button>
+                </div>
+                
+                <div class="space-y-2 text-sm">
+                    <div class="flex items-center"><i data-lucide="user" class="w-4 h-4 text-slate-500 mr-2"></i><span class="w-16 text-slate-500">姓名:</span><span id="dispName" class="font-medium">王小明</span></div>
+                    <div class="flex items-center"><i data-lucide="cake" class="w-4 h-4 text-slate-500 mr-2"></i><span class="w-16 text-slate-500">生日:</span><span id="dispDob" class="font-medium">1985/03/15</span></div>
+                    <div class="flex items-center"><i data-lucide="id-card" class="w-4 h-4 text-slate-500 mr-2"></i><span class="w-16 text-slate-500">ID:</span><span id="dispId" class="font-medium">A123456789</span></div>
+                    <div class="flex items-center"><i data-lucide="ruler" class="w-4 h-4 text-slate-500 mr-2"></i><span class="w-16 text-slate-500">身高:</span><span id="dispHeight" class="font-medium">175 cm</span></div>
+                    <div class="flex items-center"><i data-lucide="scale" class="w-4 h-4 text-slate-500 mr-2"></i><span class="w-16 text-slate-500">體重:</span><span id="dispWeight" class="font-medium">70 kg</span></div>
+                </div>
+            </div>
+
+            <!-- 參數設定區 (治療未開始時顯示) -->
+            <div id="settingsPanel" class="glass-card rounded-3xl p-5 space-y-6 transition-all duration-300">
+                
+                <!-- 強度選擇 -->
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-2">治療強度</h3>
+                    <div class="flex bg-cyan-50 rounded-2xl p-1">
+                        <button onclick="setStrength('Weak')" id="btnWeak" class="flex-1 py-3 rounded-xl text-sm font-semibold transition-all shadow-sm bg-cyan-500 text-white">弱</button>
+                        <button onclick="setStrength('Strong')" id="btnStrong" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 transition-all hover:bg-white/50">強</button>
+                    </div>
+                </div>
+
+                <!-- 時間選擇 -->
+                <div>
+                    <h3 class="font-semibold text-slate-900 mb-2">治療時長 (分鐘)</h3>
+                    <div class="flex bg-cyan-50 rounded-2xl p-1">
+                        <button onclick="setDuration('Short', 5)" id="btnShort" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 transition-all hover:bg-white/50">短 (5)</button>
+                        <button onclick="setDuration('Medium', 10)" id="btnMedium" class="flex-1 py-3 rounded-xl text-sm font-semibold shadow-sm bg-cyan-500 text-white transition-all">中 (10)</button>
+                        <button onclick="setDuration('Long', 15)" id="btnLong" class="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-500 transition-all hover:bg-white/50">長 (15)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 治療進行中監控畫面 (預設隱藏) -->
+            <div id="monitoringPanel" class="hidden glass-card rounded-3xl p-8 bg-teal-50/90 text-center space-y-4 border-2 border-teal-500/20">
+                <h3 class="text-xl font-bold text-teal-600">治療進行中...</h3>
+                <div id="timerDisplay" class="text-6xl font-bold text-teal-600 tabular-nums tracking-wider">10:00</div>
+                
+                <!-- 進度條 -->
+                <div class="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
+                    <div id="progressBar" class="h-full bg-teal-600 transition-all duration-1000 ease-linear" style="width: 0%"></div>
+                </div>
+                
+                <div class="flex justify-center gap-4 text-slate-500 mt-2">
+                    <p>強度: <span id="monitorStrength" class="font-bold">弱</span></p>
+                    <p>模式: <span class="font-bold">Recovery</span></p>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 底部按鈕區 (固定在底部) -->
+        <div class="absolute bottom-0 w-full p-6 bg-gradient-to-t from-[#4DB5BE] to-transparent pt-10">
+            <div class="flex gap-4">
+                <!-- 連線按鈕 (未連線時顯示) -->
+                <button id="connectBtn" onclick="toggleConnection()" class="flex-1 py-4 bg-cyan-500 hover:bg-cyan-600 text-white text-lg font-bold rounded-2xl shadow-lg shadow-cyan-500/30 transition active:scale-95">
+                    連線設備
+                </button>
+
+                <!-- 治療控制按鈕組 (連線後顯示) -->
+                <div id="therapyControls" class="hidden flex-1 flex gap-4">
+                    <button id="startBtn" onclick="startTherapy()" class="flex-1 py-4 bg-cyan-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-cyan-500/30 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none">
+                        START
+                    </button>
+                    <button id="stopBtn" onclick="stopTherapy()" class="flex-1 py-4 bg-red-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-red-500/30 transition active:scale-95 disabled:bg-slate-300 disabled:shadow-none" disabled>
+                        STOP
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 個人資料設定畫面 (Profile Screen) ==================== -->
+        <div id="profileScreen" class="absolute inset-0 bg-slate-50 z-50 transform translate-x-full transition-transform duration-300 flex flex-col">
+            <!-- 標題列 -->
+            <div class="glass-card rounded-b-3xl px-6 py-4 flex items-center shadow-sm">
+                <button onclick="navigateTo('control')" class="p-2 -ml-2 rounded-full active:bg-slate-200">
+                    <i data-lucide="chevron-left" class="w-6 h-6 text-slate-800"></i>
+                </button>
+                <h2 class="text-xl font-bold text-slate-800 ml-2">個人資料設定</h2>
+            </div>
+
+            <!-- 表單 -->
+            <div class="flex-1 overflow-y-auto p-6 space-y-5">
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-slate-600">姓名</label>
+                    <input type="text" id="inputName" class="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-slate-600">生日</label>
+                    <input type="text" id="inputDob" class="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-slate-600">身分證/ID</label>
+                    <input type="text" id="inputId" class="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-slate-600">身高</label>
+                    <input type="text" id="inputHeight" class="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+                <div class="space-y-2">
+                    <label class="text-sm font-semibold text-slate-600">體重</label>
+                    <input type="text" id="inputWeight" class="w-full p-3 rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cyan-500 transition">
+                </div>
+
+                <button onclick="saveProfile()" class="w-full mt-8 py-4 bg-emerald-500 text-white text-lg font-bold rounded-2xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2 active:scale-95 transition">
+                    <i data-lucide="save" class="w-5 h-5"></i>
+                    儲存變更
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 初始化 Lucide 圖標
+        lucide.createIcons();
+
+        // --- 狀態變數 ---
+        let deviceConnected = false;
+        let isTreating = false;
+        let strength = 'Weak';
+        let durationMinutes = 10;
+        let remainingSeconds = 0;
+        let timerInterval = null;
+        
+        // BLE 相關
+        let bluetoothDevice;
+        let controlChar; // 用於寫入控制指令
+        const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+        const CHAR_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+        // 患者資料 (預設)
+        let patient = {
+            name: "王小明", dob: "1985/03/15", id: "A123456789", height: "175 cm", weight: "70 kg"
+        };
+
+        // --- 初始化 UI ---
+        updateProfileUI();
+
+        // --- 導航功能 ---
+        function navigateTo(screen) {
+            const profileScreen = document.getElementById('profileScreen');
+            if (screen === 'profile') {
+                // 填入當前資料
+                document.getElementById('inputName').value = patient.name;
+                document.getElementById('inputDob').value = patient.dob;
+                document.getElementById('inputId').value = patient.id;
+                document.getElementById('inputHeight').value = patient.height;
+                document.getElementById('inputWeight').value = patient.weight;
+                profileScreen.classList.remove('translate-x-full');
+            } else {
+                profileScreen.classList.add('translate-x-full');
+            }
+        }
+
+        function saveProfile() {
+            patient.name = document.getElementById('inputName').value;
+            patient.dob = document.getElementById('inputDob').value;
+            patient.id = document.getElementById('inputId').value;
+            patient.height = document.getElementById('inputHeight').value;
+            patient.weight = document.getElementById('inputWeight').value;
+            updateProfileUI();
+            navigateTo('control');
+        }
+
+        function updateProfileUI() {
+            document.getElementById('dispName').innerText = patient.name;
+            document.getElementById('dispDob').innerText = patient.dob;
+            document.getElementById('dispId').innerText = patient.id;
+            document.getElementById('dispHeight').innerText = patient.height;
+            document.getElementById('dispWeight').innerText = patient.weight;
+        }
+
+        // --- 參數設定功能 ---
+        function setStrength(val) {
+            if(isTreating) return;
+            strength = val;
+            
+            // UI 更新
+            const btnWeak = document.getElementById('btnWeak');
+            const btnStrong = document.getElementById('btnStrong');
+            const activeClass = ['bg-cyan-500', 'text-white', 'shadow-sm'];
+            const inactiveClass = ['text-slate-500', 'hover:bg-white/50'];
+
+            if(val === 'Weak') {
+                btnWeak.classList.add(...activeClass); btnWeak.classList.remove(...inactiveClass);
+                btnStrong.classList.remove(...activeClass); btnStrong.classList.add(...inactiveClass);
+            } else {
+                btnStrong.classList.add(...activeClass); btnStrong.classList.remove(...inactiveClass);
+                btnWeak.classList.remove(...activeClass); btnWeak.classList.add(...inactiveClass);
+            }
+        }
+
+        function setDuration(type, min) {
+            if(isTreating) return;
+            durationMinutes = min;
+            
+            // 重置所有按鈕樣式
+            ['Short', 'Medium', 'Long'].forEach(t => {
+                const btn = document.getElementById(`btn${t}`);
+                btn.classList.remove('bg-cyan-500', 'text-white', 'shadow-sm');
+                btn.classList.add('text-slate-500', 'hover:bg-white/50');
+            });
+            // 啟用選中按鈕
+            const activeBtn = document.getElementById(`btn${type}`);
+            activeBtn.classList.remove('text-slate-500', 'hover:bg-white/50');
+            activeBtn.classList.add('bg-cyan-500', 'text-white', 'shadow-sm');
+        }
+
+        // --- 藍牙功能 ---
+        async function toggleConnection() {
+            if (!deviceConnected) {
+                try {
+                    console.log('Requesting Bluetooth Device...');
+                    bluetoothDevice = await navigator.bluetooth.requestDevice({
+                        // Bluefy 有時需要明確指定名稱前綴或 acceptAllDevices
+                        filters: [{ namePrefix: 'ESP32' }],
+                        optionalServices: [SERVICE_UUID]
+                    });
+
+                    bluetoothDevice.addEventListener('gattserverdisconnected', onDisconnected);
+                    
+                    const server = await bluetoothDevice.gatt.connect();
+                    const service = await server.getPrimaryService(SERVICE_UUID);
+                    controlChar = await service.getCharacteristic(CHAR_UUID);
+
+                    onConnected();
+                } catch (error) {
+                    console.log('Argh! ' + error);
+                    alert('連線失敗: ' + error);
+                }
+            }
+        }
+
+        function onConnected() {
+            deviceConnected = true;
+            document.getElementById('connText').innerText = "設備已連線";
+            document.getElementById('connText').className = "text-sm font-semibold text-emerald-600";
+            document.getElementById('connIcon').outerHTML = '<i id="connIcon" data-lucide="check-circle" class="w-4 h-4 text-emerald-500"></i>';
+            lucide.createIcons();
+            
+            // 顯示電量 (模擬)
+            document.getElementById('batteryGroup').classList.remove('hidden');
+            document.getElementById('batteryText').innerText = "85%";
+
+            // 切換按鈕
+            document.getElementById('connectBtn').classList.add('hidden');
+            document.getElementById('therapyControls').classList.remove('hidden');
+
+            // 發送指令：連線成功 (但尚未治療) -> ESP32 LED 恆亮
+            sendCommand("CONNECTED"); 
+        }
+
+        function onDisconnected() {
+            deviceConnected = false;
+            stopTherapy(true); // 強制停止
+            
+            document.getElementById('connText').innerText = "設備未連線";
+            document.getElementById('connText').className = "text-sm font-semibold text-red-500";
+            document.getElementById('connIcon').outerHTML = '<i id="connIcon" data-lucide="circle-off" class="w-4 h-4 text-red-500"></i>';
+            lucide.createIcons();
+
+            document.getElementById('batteryGroup').classList.add('hidden');
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('therapyControls').classList.add('hidden');
+        }
+
+        async function sendCommand(cmd) {
+            if (!controlChar) return;
+            try {
+                // 定義簡單協議：
+                // "1" = 開始治療 (LED 快閃)
+                // "0" = 停止治療/閒置 (LED 恆亮)
+                // "CONNECTED" = 只是為了日誌，這裡主要傳 "0" 或 "1"
+                
+                let val = "0";
+                if (cmd === "START") val = "1";
+                if (cmd === "STOP" || cmd === "CONNECTED") val = "0";
+
+                const encoder = new TextEncoder();
+                await controlChar.writeValue(encoder.encode(val));
+            } catch (e) {
+                console.log("Send command error:", e);
+            }
+        }
+
+        // --- 治療控制 ---
+        function startTherapy() {
+            if(!deviceConnected) return;
+
+            isTreating = true;
+            remainingSeconds = durationMinutes * 60;
+            updateTimerDisplay();
+
+            // UI 切換
+            document.getElementById('settingsPanel').classList.add('hidden');
+            document.getElementById('monitoringPanel').classList.remove('hidden');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('editProfileBtn').classList.add('invisible'); // 禁止編輯
+            document.getElementById('monitorStrength').innerText = strength === 'Weak' ? '弱' : '強';
+
+            // 發送指令 -> ESP32 開始閃爍 LED
+            sendCommand("START");
+
+            // 啟動計時器
+            timerInterval = setInterval(() => {
+                remainingSeconds--;
+                updateTimerDisplay();
+                updateProgressBar();
+
+                if(remainingSeconds <= 0) {
+                    stopTherapy();
+                }
+            }, 1000);
+        }
+
+        function stopTherapy(forced = false) {
+            isTreating = false;
+            clearInterval(timerInterval);
+            
+            // UI 切換回設定模式
+            document.getElementById('settingsPanel').classList.remove('hidden');
+            document.getElementById('monitoringPanel').classList.add('hidden');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('editProfileBtn').classList.remove('invisible');
+
+            if (deviceConnected && !forced) {
+                // 發送指令 -> ESP32 停止閃爍，變回恆亮
+                sendCommand("STOP");
+            }
+        }
+
+        function updateTimerDisplay() {
+            const min = Math.floor(remainingSeconds / 60).toString().padStart(2, '0');
+            const sec = (remainingSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${min}:${sec}`;
+        }
+
+        function updateProgressBar() {
+            const total = durationMinutes * 60;
+            const percentage = ((total - remainingSeconds) / total) * 100;
+            document.getElementById('progressBar').style.width = `${percentage}%`;
+        }
+
+    </script>
+</body>
+</html>
